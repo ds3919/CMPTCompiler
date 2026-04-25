@@ -93,6 +93,7 @@ export class DiagnosticReporter {
   }
 
 // tools
+
   // true if an error is found at any compilation stage
   public hasErrors(): boolean {
     return this.diagnostics.some(d => d.level === DiagnosticLevel.ERROR);
@@ -106,7 +107,7 @@ export class DiagnosticReporter {
     return this.diagnostics.filter(d => d.level === DiagnosticLevel.WARNING).length;
   }
 
-  // print all diagnostics
+  //print all diagnostics
   public printAll(): void {
     if (this.diagnostics.length === 0) {
       console.log("No diagnostics.");
@@ -170,10 +171,10 @@ export class DiagnosticReporter {
     const lineNumberText = String(line);
 
     // line number
-    const gutterSize = lineNumberText.length + 3;
+    const lineNumPrefix = lineNumberText.length + 3;
 
     // move pointer to start of token
-    const pointerStart = gutterSize + Math.max(startColumn - 1, 0);
+    const pointerStart = lineNumPrefix + Math.max(startColumn - 1, 0);
 
     // fetches the whole token, not just the first char
     const pointerLength = Math.max(endColumn - startColumn + 1, 1);

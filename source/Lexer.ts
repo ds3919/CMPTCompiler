@@ -147,7 +147,7 @@ export class Lexer {
             this.programNumber,
             char,
             "valid token from the grammar",
-            "Remove this character or replace it with a valid grammar symbol."
+            "Remove this character or replace it with a valid grammar token."
           );
           this.advance();
         }
@@ -217,76 +217,64 @@ export class Lexer {
   private lexWord(): void {
     const startLine = this.line;
     const startColumn = this.column;
-    let word = "";
 
-    while (!this.isAtEnd() && this.isLowercaseLetter(this.peek())) {
-      word += this.peek();
-      this.advance();
-    }
+    const keywordMatch = this.matchKeywordAtCurrent();
 
-    switch (word) {
-      case "print":
-        this.addToken(TokenType.PRINT, word, startLine, startColumn);
-        break;
-
-      case "while":
-        this.addToken(TokenType.WHILE, word, startLine, startColumn);
-        break;
-
-      case "if":
-        this.addToken(TokenType.IF, word, startLine, startColumn);
-        break;
-
-      case "int":
-        this.addToken(TokenType.TYPE_INT, word, startLine, startColumn);
-        break;
-
-      case "string":
-        this.addToken(TokenType.TYPE_STRING, word, startLine, startColumn);
-        break;
-
-      case "boolean":
-        this.addToken(TokenType.TYPE_BOOLEAN, word, startLine, startColumn);
-        break;
-
-      case "true":
-        this.addToken(TokenType.BOOL_TRUE, word, startLine, startColumn);
-        break;
-
-      case "false":
-        this.addToken(TokenType.BOOL_FALSE, word, startLine, startColumn);
-        break;
-
-      default:
-        this.handleIdentifierWord(word, startLine, startColumn);
-        break;
-    }
-  }
-
-  // identifier handling
-  private handleIdentifierWord(
-    word: string,
-    line: number,
-    startColumn: number
-  ): void {
-    if (word.length === 1) {
-      this.addToken(TokenType.ID, word, line, startColumn);
+    if (keywordMatch !== undefined) {
+      this.addToken(keywordMatch.type, keywordMatch.value, startLine, startColumn);
+      this.advanceBy(keywordMatch.value.length);
       return;
     }
 
-    const endColumn = startColumn + word.length - 1;
+    const char = this.peek();
+
+    if (this.isLowercaseLetter(char)) {
+      this.addToken(TokenType.ID, char, startLine, startColumn);
+      this.advance();
+      return;
+    }
 
     this.diagnostics.error(
       "Lexer",
-      `Invalid identifier '${word}'. The grammar only allows one lowercase character as an identifier.`,
-      line,
+      `Unrecognized character '${char}'.`,
+      startLine,
       startColumn,
-      endColumn,
+      startColumn,
       this.programNumber,
-      word,
-      "single lowercase character, like a or b",
-      `Use a single-character identifier, for example '${word[0]}'.`
+      char,
+      "valid token from the grammar",
+      "Remove this character or replace it with a valid grammar token."
     );
+
+    this.advance();
+  }
+
+  private matchKeywordAtCurrent(): { type: TokenType; value: string } | undefined {
+    const keywords = [
+      { value: "boolean", type: TokenType.TYPE_BOOLEAN },
+      { value: "string", type: TokenType.TYPE_STRING },
+      { value: "while", type: TokenType.WHILE },
+      { value: "print", type: TokenType.PRINT },
+      { value: "false", type: TokenType.BOOL_FALSE },
+      { value: "true", type: TokenType.BOOL_TRUE },
+      { value: "int", type: TokenType.TYPE_INT },
+      { value: "if", type: TokenType.IF }
+    ];
+
+    for (const keyword of keywords) {
+      if (this.sourceStartsWith(keyword.value)) {
+        return keyword;
+      }
+    }
+
+    return undefined;
+  }
+
+  private sourceStartsWith(value: string): boolean {
+    return this.source.substring(
+      this.currentIndex,
+      this.currentIndex + value.length
+    ) === value;
   }
 
   // comment handling
@@ -324,7 +312,7 @@ export class Lexer {
     );
   }
 
-  // end of program handling
+  // EOP handling
   private checkForMissingFinalEOP(): void {
     if (this.tokens.length === 0) {
       return;
@@ -390,6 +378,12 @@ export class Lexer {
   private advance(): void {
     this.currentIndex++;
     this.column++;
+  }
+
+  private advanceBy(amount: number): void {
+    for (let i = 0; i < amount; i++) {
+      this.advance();
+    }
   }
 
   private advanceLine(): void {

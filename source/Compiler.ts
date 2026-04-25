@@ -1,18 +1,20 @@
 import * as fs from "fs";
 import { DiagnosticReporter } from "./DiagnosticReporter";
 import { Lexer } from "./Lexer";
+import { Parser } from "./Parser";
 
 function main(): void {
   // file handling
   const inputFile = process.argv[2];
-  
+
   if (!inputFile) {
     console.error("Usage: node dist/Compiler.js <input-file>");
     process.exit(1);
   }
 
   if (!inputFile.endsWith(".cmpt")) {
-    console.error("Invalid file type, expected .cmpt source file.")
+    console.error("Invalid file type, expected .cmpt source file.");
+    process.exit(1);
   }
 
   if (!fs.existsSync(inputFile)) {
@@ -22,16 +24,17 @@ function main(): void {
 
   const source = fs.readFileSync(inputFile, "utf8");
 
-  const sourceLines = source.split(/\r?\n/); //saving a copy of the source for error messaging
+  // saving a copy of the source for error messaging
+  const sourceLines = source.split(/\r?\n/);
 
-  console.log("COMPILER: Starting compilation");
-  console.log("COMPILER: Running Lexer");
-  console.log("");
-  
+  console.log("COMPILER: Starting compilation\n");
+
   // general reporter for all compilation stages
   const diagnostics = new DiagnosticReporter(sourceLines);
 
-  // run lexer
+  // lexer stage
+  console.log("COMPILER: Running Lexer\n");
+
   const lexer = new Lexer(source, diagnostics, true);
   const tokens = lexer.lex();
 
@@ -43,22 +46,43 @@ function main(): void {
 
   diagnostics.printAll();
 
-  // compiler phases stop on errors
+  // compiler stages stop on errors
   if (diagnostics.hasErrors()) {
-    console.log("");
-    console.log("COMPILER: Lex failed, stopping before Parser.");
+    console.log("\nCOMPILER: Lex failed, stopping before Parser.");
     process.exit(1);
   }
 
-  console.log("");
-  console.log("COMPILER: Lex passed, ready for Parser.");
-  console.log("");
-  console.log("TOKEN STREAM:");
+  console.log("\nCOMPILER: Lex passed.");
+  console.log("\nTOKEN STREAM:");
 
   // display final token stream for debugging
   for (const token of tokens) {
     console.log(token.toString());
   }
+
+  // parser phase
+  console.log("\nCOMPILER: Running Parser\n");
+
+  const parser = new Parser(tokens, diagnostics, true);
+  const cst = parser.parse();
+
+  console.log("\nCOMPILER: Parser finished");
+  console.log(`COMPILER: Errors: ${diagnostics.getErrorCount()}`);
+  console.log(`COMPILER: Warnings: ${diagnostics.getWarningCount()}`);
+
+  diagnostics.printAll();
+
+  if (diagnostics.hasErrors()) {
+    console.log("");
+    console.log("COMPILER: Parse failed, stopping before Semantic Analysis.");
+    process.exit(1);
+  }
+
+  console.log("\nCOMPILER: Parse passed.\n");
+  console.log("CONCRETE SYNTAX TREE:");
+  console.log(cst.toString());
+
+  console.log("COMPILER: Ready for Semantic Analysis.");
 }
 
 main();

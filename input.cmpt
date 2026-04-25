@@ -3,7 +3,24 @@
   a = 5
   print(a)
 }$
+
 {
   int a
-  a = @
+  print()a
+}$
+
+{
+  int a
+  a = a!=b)
+  print("hello")
+} $
+
+{
+  while("hello") {
+    printb()
+  }
+  iftrue {
+    int a
+    a = b
+  }
 }$
