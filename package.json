@@ -1,0 +1,15 @@
+{
+  "name": "my-compiler",
+  "version": "1.0.0",
+  "description": "Design of Compilers Project",
+  "main": "dist/Compiler.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/Compiler.js input.cmpt",
+    "dev": "tsc && node dist/Compiler.js input.cmpt"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^5.4.5"
+  }
+}
