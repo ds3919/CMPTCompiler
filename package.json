@@ -5,8 +5,8 @@
   "main": "dist/Compiler.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/Compiler.js input.cmpt",
-    "dev": "tsc && node dist/Compiler.js input.cmpt"
+    "valid": "node dist/Compiler.js valid.cmpt",
+    "invalid": "tsc && node dist/Compiler.js invalid.cmpt"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

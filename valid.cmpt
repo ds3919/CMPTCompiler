@@ -1,0 +1,91 @@
+{
+  int a
+  a = 5
+  print(a)
+}$
+
+{
+  int a
+  int b
+  a = 7
+  b = a
+  print(b)
+}$
+
+{
+  print("hello")
+}$
+
+{
+  string s
+  s = "hello"
+  print(s)
+}$
+
+{
+  boolean c
+  c = false
+  print(c)
+}$
+
+{
+  boolean c
+  c = true
+  print(c)
+}$
+
+{
+  int a
+  int b
+  boolean c
+  a = 1
+  b = 1
+  c = (a == b)
+  print(c)
+}$
+
+{
+  int a
+  int b
+  boolean c
+  a = 1
+  b = 2
+  c = (a == b)
+  print(c)
+}$
+
+{
+  int a
+  int b
+  boolean c
+  a = 1
+  b = 1
+  c = (a != b)
+  print(c)
+}$
+
+{
+  int a
+  int b
+  boolean c
+  a = 1
+  b = 2
+  c = (a != b)
+  print(c)
+}$
+
+{
+  int a
+  int b
+  a = 3
+  b = 3
+  print((a == b))
+}$
+
+{
+  int a
+  int b
+  a = 1
+  b = 2
+  print(1 + b)
+}$

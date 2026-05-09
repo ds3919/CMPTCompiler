@@ -1,0 +1,80 @@
+{
+  int a
+  print(a)
+}$
+
+{
+  int a
+  int a
+  a = 5
+  print(a)
+}$
+
+{
+  a = 5
+  print(a)
+}$
+
+{
+  int a
+  a = "hello"
+  print(a)
+}$
+
+{
+  string s
+  s = 5
+  print(s)
+}$
+
+{
+  boolean c
+  c = 1
+  print(c)
+}$
+
+{
+  int a
+  string b
+  a = 1
+  b = "hello"
+  print((a == b))
+}$
+
+{
+  int a
+  a = 1
+  print(b)
+}$
+
+{
+  int a
+  a = 
+  print(a)
+}$
+
+{
+  int a =
+  print(a)
+}$
+
+{
+  print()
+}$
+
+{
+  int a
+  a = a!=b)
+  print(a)
+}$
+
+{
+  string s
+  s = "Hello"
+  print(s)
+}$
+
+{
+  int a
+  print(a)
+}
