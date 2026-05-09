@@ -6,21 +6,22 @@
 
 {
   int a
-  print()a
+  a = 1
+  print(a)
 }$
-
+/*
 {
   int a
-  a = a!=b)
+  a = (a!=b)
   print("hello")
 } $
 
 {
-  while("hello") {
-    printb()
+  while true {
+    print(b)
   }
-  iftrue {
+  if true {
     int a
-    a = b
+    a = 1
   }
-}$
+}$*/

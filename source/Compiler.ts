@@ -1,7 +1,10 @@
 import * as fs from "fs";
+import { ASTBuilder } from "./ASTBuilder";
+import { CodeGenerator } from "./CodeGenerator";
 import { DiagnosticReporter } from "./DiagnosticReporter";
 import { Lexer } from "./Lexer";
 import { Parser } from "./Parser";
+import { SemanticAnalyzer } from "./SemanticAnalyzer";
 
 function main(): void {
   // file handling
@@ -74,7 +77,7 @@ function main(): void {
 
   if (diagnostics.hasErrors()) {
     console.log("");
-    console.log("COMPILER: Parse failed, stopping before Semantic Analysis.");
+    console.log("COMPILER: Parse failed, stopping before AST Builder.");
     process.exit(1);
   }
 
@@ -82,7 +85,48 @@ function main(): void {
   console.log("CONCRETE SYNTAX TREE:");
   console.log(cst.toString());
 
-  console.log("COMPILER: Ready for Semantic Analysis.");
+  // AST builder phase
+  console.log("COMPILER: Running AST Builder\n");
+
+  const astBuilder = new ASTBuilder(tokens, true);
+  const ast = astBuilder.build();
+
+  console.log("\nCOMPILER: AST Builder finished");
+  console.log("\nABSTRACT SYNTAX TREE:");
+  console.log(ast.toString());
+
+  // semantic analysis phase
+  console.log("COMPILER: Running Semantic Analysis\n");
+
+  const semanticAnalyzer = new SemanticAnalyzer(ast, diagnostics, true);
+  const symbolTable = semanticAnalyzer.analyze();
+
+  console.log("\nCOMPILER: Semantic Analysis finished");
+  console.log(`COMPILER: Errors: ${diagnostics.getErrorCount()}`);
+  console.log(`COMPILER: Warnings: ${diagnostics.getWarningCount()}`);
+
+  diagnostics.printAll();
+
+  console.log("\nSYMBOL TABLE:");
+  console.log(symbolTable.toString());
+
+  if (diagnostics.hasErrors()) {
+    console.log("");
+    console.log("COMPILER: Semantic Analysis failed, stopping before Code Generation.");
+    process.exit(1);
+  }
+
+  console.log("\nCOMPILER: Semantic Analysis passed.");
+
+  // code generation phase
+  console.log("COMPILER: Running Code Generation\n");
+
+  const codeGenerator = new CodeGenerator(ast, true);
+  const generatedCode = codeGenerator.generate();
+
+  console.log("\nCOMPILER: Code Generation finished");
+  console.log("\nGENERATED CODE:");
+  console.log(generatedCode.join("\n"));
 }
 
 main();
