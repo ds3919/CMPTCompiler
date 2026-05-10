@@ -5,23 +5,24 @@ import { DiagnosticReporter } from "./DiagnosticReporter";
 import { Lexer } from "./Lexer";
 import { Parser } from "./Parser";
 import { SemanticAnalyzer } from "./SemanticAnalyzer";
+import { TerminalColors } from "./TerminalColors";
 
 function main(): void {
   // file handling
   const inputFile = process.argv[2];
 
   if (!inputFile) {
-    console.error("Usage: node dist/Compiler.js <input-file>");
+    console.error(TerminalColors.error("Usage: node dist/Compiler.js <input-file>"));
     process.exit(1);
   }
 
   if (!inputFile.endsWith(".cmpt")) {
-    console.error("Invalid file type, expected .cmpt source file.");
+    console.error(TerminalColors.error("Invalid file type, expected .cmpt source file."));
     process.exit(1);
   }
 
   if (!fs.existsSync(inputFile)) {
-    console.error(`Input file not found: ${inputFile}`);
+    console.error(TerminalColors.error(`Input file not found: ${inputFile}`));
     process.exit(1);
   }
 
@@ -30,19 +31,21 @@ function main(): void {
   // saving a copy of the source for error messaging
   const sourceLines = source.split(/\r?\n/);
 
-  console.log("COMPILER: Starting compilation\n");
+  console.log(TerminalColors.phase("COMPILER: Starting compilation"));
+  console.log("");
 
   // general reporter for all compilation stages
   const diagnostics = new DiagnosticReporter(sourceLines);
 
   // lexer stage
-  console.log("COMPILER: Running Lexer\n");
+  console.log(TerminalColors.phase("COMPILER: Running Lexer"));
+  console.log("");
 
   const lexer = new Lexer(source, diagnostics, true);
   const tokens = lexer.lex();
 
   console.log("");
-  console.log("COMPILER: Lexer finished");
+  console.log(TerminalColors.phase("COMPILER: Lexer finished"));
   console.log(`COMPILER: Tokens produced: ${tokens.length}`);
   console.log(`COMPILER: Errors: ${diagnostics.getErrorCount()}`);
   console.log(`COMPILER: Warnings: ${diagnostics.getWarningCount()}`);
@@ -51,12 +54,15 @@ function main(): void {
 
   // compiler stages stop on errors
   if (diagnostics.hasErrors()) {
-    console.log("\nCOMPILER: Lex failed, stopping before Parser.");
+    console.log("");
+    console.log(TerminalColors.error("COMPILER: Lex failed, stopping before Parser."));
     process.exit(1);
   }
 
-  console.log("\nCOMPILER: Lex passed.");
-  console.log("\nTOKEN STREAM:");
+  console.log("");
+  console.log(TerminalColors.success("COMPILER: Lex passed."));
+  console.log("");
+  console.log(TerminalColors.phase("TOKEN STREAM:"));
 
   // display final token stream for debugging
   for (const token of tokens) {
@@ -64,12 +70,15 @@ function main(): void {
   }
 
   // parser phase
-  console.log("\nCOMPILER: Running Parser\n");
+  console.log("");
+  console.log(TerminalColors.phase("COMPILER: Running Parser"));
+  console.log("");
 
   const parser = new Parser(tokens, diagnostics, true);
   const cst = parser.parse();
 
-  console.log("\nCOMPILER: Parser finished");
+  console.log("");
+  console.log(TerminalColors.phase("COMPILER: Parser finished"));
   console.log(`COMPILER: Errors: ${diagnostics.getErrorCount()}`);
   console.log(`COMPILER: Warnings: ${diagnostics.getWarningCount()}`);
 
@@ -77,49 +86,58 @@ function main(): void {
 
   if (diagnostics.hasErrors()) {
     console.log("");
-    console.log("COMPILER: Parse failed, stopping before AST Builder.");
+    console.log(TerminalColors.error("COMPILER: Parse failed, stopping before AST Builder."));
     process.exit(1);
   }
 
-  console.log("\nCOMPILER: Parse passed.\n");
-  console.log("CONCRETE SYNTAX TREE:");
+  console.log("");
+  console.log(TerminalColors.success("COMPILER: Parse passed."));
+  console.log("");
+  console.log(TerminalColors.phase("CONCRETE SYNTAX TREE:"));
   console.log(cst.toString());
 
   // AST builder phase
-  console.log("COMPILER: Running AST Builder\n");
+  console.log(TerminalColors.phase("COMPILER: Running AST Builder"));
+  console.log("");
 
   const astBuilder = new ASTBuilder(tokens, true);
   const ast = astBuilder.build();
 
-  console.log("\nCOMPILER: AST Builder finished");
-  console.log("\nABSTRACT SYNTAX TREE:");
+  console.log("");
+  console.log(TerminalColors.phase("COMPILER: AST Builder finished"));
+  console.log("");
+  console.log(TerminalColors.phase("ABSTRACT SYNTAX TREE:"));
   console.log(ast.toString());
 
   // semantic analysis phase
-  console.log("COMPILER: Running Semantic Analysis\n");
+  console.log(TerminalColors.phase("COMPILER: Running Semantic Analysis"));
+  console.log("");
 
   const semanticAnalyzer = new SemanticAnalyzer(ast, diagnostics, true);
   const symbolTable = semanticAnalyzer.analyze();
 
-  console.log("\nCOMPILER: Semantic Analysis finished");
+  console.log("");
+  console.log(TerminalColors.phase("COMPILER: Semantic Analysis finished"));
   console.log(`COMPILER: Errors: ${diagnostics.getErrorCount()}`);
   console.log(`COMPILER: Warnings: ${diagnostics.getWarningCount()}`);
 
   diagnostics.printAll();
 
-  console.log("\nSYMBOL TABLE:");
+  console.log("");
+  console.log(TerminalColors.phase("SYMBOL TABLE:"));
   console.log(symbolTable.toString());
 
   if (diagnostics.hasErrors()) {
     console.log("");
-    console.log("COMPILER: Semantic Analysis failed, stopping before Code Generation.");
+    console.log(TerminalColors.error("COMPILER: Semantic Analysis failed, stopping before Code Generation."));
     process.exit(1);
   }
 
-  console.log("\nCOMPILER: Semantic Analysis passed.");
+  console.log("");
+  console.log(TerminalColors.success("COMPILER: Semantic Analysis passed."));
 
   // code generation phase
-    console.log("COMPILER: Running Code Generation");
+  console.log(TerminalColors.phase("COMPILER: Running Code Generation"));
   console.log("");
 
   try {
@@ -127,37 +145,37 @@ function main(): void {
     const generatedCode = codeGenerator.generate();
 
     console.log("");
-    console.log("COMPILER: Code Generation finished");
+    console.log(TerminalColors.phase("COMPILER: Code Generation finished"));
     console.log("");
 
-    console.log("GENERATED CODE:");
+    console.log(TerminalColors.phase("GENERATED CODE:"));
     for (const line of generatedCode) {
       console.log(line);
     }
   } catch (error) {
     console.log("");
-    console.log("COMPILER: Code Generation failed.");
+    console.log(TerminalColors.error("COMPILER: Code Generation failed."));
     console.log("");
 
     if (error instanceof CodeGenerationError) {
-      console.log(`[ERROR] Code Generation - ${error.programLabel}`);
-      console.log(error.message);
+      console.log(`${TerminalColors.error("[ERROR]")} ${TerminalColors.phase("Code Generation")} - ${error.programLabel}`);
+      console.log(TerminalColors.bold(error.message));
 
       if (error.suggestion !== undefined) {
-        console.log(`Suggestion: ${error.suggestion}`);
+        console.log(`${TerminalColors.hint("Suggestion:")} ${error.suggestion}`);
       }
 
       return;
     }
 
     if (error instanceof Error) {
-      console.log("[ERROR] Code Generation");
-      console.log(error.message);
+      console.log(`${TerminalColors.error("[ERROR]")} ${TerminalColors.phase("Code Generation")}`);
+      console.log(TerminalColors.bold(error.message));
       return;
     }
 
-    console.log("[ERROR] Code Generation");
-    console.log("Unknown code generation failure.");
+    console.log(`${TerminalColors.error("[ERROR]")} ${TerminalColors.phase("Code Generation")}`);
+    console.log(TerminalColors.bold("Unknown code generation failure."));
     return;
   }
 }

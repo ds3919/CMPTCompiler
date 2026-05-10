@@ -1,3 +1,5 @@
+import { TerminalColors } from "./TerminalColors";
+
 export enum DiagnosticLevel {
   ERROR = "ERROR",
   WARNING = "WARNING",
@@ -92,7 +94,7 @@ export class DiagnosticReporter {
     });
   }
 
-// tools
+  // tools
 
   // true if an error is found at any compilation stage
   public hasErrors(): boolean {
@@ -107,10 +109,10 @@ export class DiagnosticReporter {
     return this.diagnostics.filter(d => d.level === DiagnosticLevel.WARNING).length;
   }
 
-  //print all diagnostics
+  // print all diagnostics
   public printAll(): void {
     if (this.diagnostics.length === 0) {
-      console.log("No diagnostics.");
+      console.log(TerminalColors.success("No diagnostics."));
       return;
     }
 
@@ -121,21 +123,23 @@ export class DiagnosticReporter {
 
   // print a specific diagnostic
   private printDiagnostic(diagnostic: Diagnostic): void {
+    const levelLabel = this.colorLevel(`[${diagnostic.level}]`, diagnostic.level);
+
     console.log("");
     console.log(
-      `[${diagnostic.level}] ${diagnostic.phase} - Program ${diagnostic.programNumber} - line ${diagnostic.line}, chars ${diagnostic.startColumn}-${diagnostic.endColumn}`
+      `${levelLabel} ${TerminalColors.phase(diagnostic.phase)} - Program ${diagnostic.programNumber} - line ${diagnostic.line}, chars ${diagnostic.startColumn}-${diagnostic.endColumn}`
     );
 
-    console.log(diagnostic.message);
+    console.log(TerminalColors.bold(diagnostic.message));
 
     // display found
     if (diagnostic.found !== undefined) {
-      console.log(`Found: ${diagnostic.found}`);
+      console.log(`${TerminalColors.found("Found:")} ${diagnostic.found}`);
     }
 
     // display expected
     if (diagnostic.expected !== undefined) {
-      console.log(`Expected: ${diagnostic.expected}`);
+      console.log(`${TerminalColors.expected("Expected:")} ${diagnostic.expected}`);
     }
 
     // show the source line with a pointer under the problem area
@@ -146,17 +150,37 @@ export class DiagnosticReporter {
     );
 
     if (snippet.length > 0) {
-      console.log("Source:");
-      console.log(snippet);
+      console.log(TerminalColors.source("Source:"));
+      console.log(TerminalColors.source(snippet));
     }
 
     // show optional fix suggestion
     if (diagnostic.suggestion !== undefined) {
-      console.log(`Suggestion: ${diagnostic.suggestion}`);
+      console.log(`${TerminalColors.hint("Suggestion:")} ${diagnostic.suggestion}`);
     }
   }
 
-  // builds the source-code pointer shown under error messages 
+  private colorLevel(label: string, level: DiagnosticLevel): string {
+    switch (level) {
+      case DiagnosticLevel.ERROR:
+        return TerminalColors.error(label);
+
+      case DiagnosticLevel.WARNING:
+        return TerminalColors.warning(label);
+
+      case DiagnosticLevel.HINT:
+      case DiagnosticLevel.SUGGESTION:
+        return TerminalColors.hint(label);
+
+      case DiagnosticLevel.INFO:
+        return TerminalColors.phase(label);
+
+      default:
+        return label;
+    }
+  }
+
+  // builds the source-code pointer shown under error messages
   private getSourceSnippet(
     line: number,
     startColumn: number,
