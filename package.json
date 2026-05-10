@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc",
     "valid": "node dist/Compiler.js valid.cmpt",
-    "invalid": "tsc && node dist/Compiler.js invalid.cmpt"
+    "lexTest": "tsc && node dist/Compiler.js invalidLexer.cmpt",
+    "parseTest": "tsc && node dist/Compiler.js invalidParse.cmpt",
+    "semanticTest": "tsc && node dist/Compiler.js invalidSemantic.cmpt",
+    "genTest": "tsc && node dist/Compiler.js invalidCodeGen.cmpt"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

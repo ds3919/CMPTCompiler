@@ -207,7 +207,7 @@ export class Parser {
         "Expected an expression before ')'.",
         "integer, string, boolean, or identifier",
         `${token.type} [${token.value}]`,
-        "The grammar requires print to contain an expression before ')', for example print(a), print(1), or print(\"hello\")."
+        "Add an expression inside print, for example print(a), print(1), or print(\"hello\")."
       );
 
       this.match(TokenType.R_PAREN, "Expected ')' after print expression.");
@@ -217,6 +217,24 @@ export class Parser {
     }
 
     this.parseExpr();
+
+    // catches invalid expressions like print(a + b)
+    if (this.currentToken()?.type === TokenType.PLUS) {
+      const plusToken = this.currentToken();
+
+      if (plusToken !== undefined) {
+        this.reportTokenError(
+          plusToken,
+          "Invalid integer expression.",
+          "')' after identifier expression",
+          `${plusToken.type} [${plusToken.value}]`,
+          "This grammar only allows addition to start with a digit, for example print(1 + a) or print(1 + 2)."
+        );
+
+        this.synchronizeToClosingParenOrBoundary();
+      }
+    }
+
     this.match(TokenType.R_PAREN, "Expected ')' after print expression.");
 
     this.cst.endChildren();
@@ -261,11 +279,12 @@ export class Parser {
       this.isBoundaryToken(exprToken.type) ||
       this.isStatementStartAtCurrent()
     ) {
-      this.reportCurrentError(
-        "Assignment statement is missing an expression.",
+      this.reportTokenError(
+        assignToken,
+        "Assignment statement is missing an expression after '='.",
         "integer, string, boolean, or identifier",
-        exprToken === undefined ? "end of input" : `${exprToken.type} [${exprToken.value}]`,
-        "Add a value after '=', id = expression"
+        `${assignToken.type} [${assignToken.value}]`,
+        "Add a value after '=' before starting the next statement, for example a = 1."
       );
 
       this.cst.endChildren();
@@ -846,6 +865,22 @@ export class Parser {
       if (
         this.isStatementListBoundary(token?.type) ||
         this.isStatementStartAtCurrent()
+      ) {
+        return;
+      }
+
+      this.advance();
+    }
+  }
+
+  // error recovery inside parenthesized expressions
+  private synchronizeToClosingParenOrBoundary(): void {
+    while (!this.isAtEnd()) {
+      const token = this.currentToken();
+
+      if (
+        token?.type === TokenType.R_PAREN ||
+        this.isStatementListBoundary(token?.type)
       ) {
         return;
       }

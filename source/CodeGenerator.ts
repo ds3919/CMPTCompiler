@@ -1,5 +1,16 @@
 import { AST, ASTNode } from "./AST";
 
+export class CodeGenerationError extends Error {
+  constructor(
+    public readonly programLabel: string,
+    message: string,
+    public readonly suggestion?: string
+  ) {
+    super(message);
+    this.name = "CodeGenerationError";
+  }
+}
+
 type VariableType = "int" | "string" | "boolean";
 
 type StaticEntry = {
@@ -25,6 +36,7 @@ export class CodeGenerator {
   private codePointer = 0;
   private heapPointer = 255;
   private tempCounter = 0;
+  private currentProgramLabel = "Program ?";
 
   constructor(
     private ast: AST,
@@ -51,6 +63,7 @@ export class CodeGenerator {
   // Program ::= Block
   private generateProgram(programNode: ASTNode): void {
     this.resetProgramMemory();
+    this.currentProgramLabel = programNode.label();
 
     this.log(`Generating code for ${programNode.label()}`);
 
@@ -97,12 +110,19 @@ export class CodeGenerator {
         this.generateBlock(node);
         break;
 
-      case "While":
       case "If":
-        throw new Error(`CODE GENERATION: ${node.kind} code generation not added yet.`);
+        this.generateIfStatement(node);
+        break;
+
+      case "While":
+        this.generateWhileStatement(node);
+        break;
 
       default:
-        throw new Error(`CODE GENERATION: Unknown AST node '${node.label()}'.`);
+        this.fail(
+          `Unknown AST node '${node.label()}'.`,
+          "Check that the AST builder is producing nodes that code generation supports."
+        );
     }
   }
 
@@ -113,7 +133,10 @@ export class CodeGenerator {
     const variableName = parts[1];
 
     if (variableName === undefined) {
-      throw new Error(`CODE GENERATION: Invalid variable declaration '${node.label()}'.`);
+      this.fail(
+        `Invalid variable declaration '${node.label()}'.`,
+        "Check that variable declarations are built as type/name pairs, for example int a."
+      );
     }
 
     this.addStaticEntry(variableName, variableType);
@@ -124,18 +147,27 @@ export class CodeGenerator {
     const variableName = node.value;
 
     if (variableName === null) {
-      throw new Error("CODE GENERATION: Assignment node is missing a variable name.");
+      this.fail(
+        "Assignment node is missing a variable name.",
+        "Check the AST builder output for assignment statements."
+      );
     }
 
     const expression = node.children[0];
     const staticEntry = this.getStaticEntry(variableName);
 
     if (staticEntry === undefined) {
-      throw new Error(`CODE GENERATION: Could not find static entry for '${variableName}'.`);
+      this.fail(
+        `Could not find static entry for '${variableName}'.`,
+        "Check that semantic analysis declared this variable before code generation."
+      );
     }
 
     if (expression === undefined) {
-      throw new Error(`CODE GENERATION: Assignment to '${variableName}' is missing an expression.`);
+      this.fail(
+        `Assignment to '${variableName}' is missing an expression.`,
+        "Check the AST builder output for assignment statements."
+      );
     }
 
     // c = (a != b)
@@ -153,7 +185,10 @@ export class CodeGenerator {
     const expression = node.children[0];
 
     if (expression === undefined) {
-      throw new Error("CODE GENERATION: Print statement is missing an expression.");
+      this.fail(
+        "Print statement is missing an expression.",
+        "Check that parser and AST builder only pass valid print expressions into code generation."
+      );
     }
 
     // print(a)
@@ -161,13 +196,19 @@ export class CodeGenerator {
       const variableName = expression.value;
 
       if (variableName === null) {
-        throw new Error("CODE GENERATION: Id expression is missing a variable name.");
+        this.fail(
+          "Id expression is missing a variable name.",
+          "Check the AST builder output for identifier expressions."
+        );
       }
 
       const staticEntry = this.getStaticEntry(variableName);
 
       if (staticEntry === undefined) {
-        throw new Error(`CODE GENERATION: Could not find static entry for '${variableName}'.`);
+        this.fail(
+          `Could not find static entry for '${variableName}'.`,
+          "Check that semantic analysis declared this variable before code generation."
+        );
       }
 
       this.emit("AC"); // load Y register from memory
@@ -183,20 +224,27 @@ export class CodeGenerator {
     // print("hello")
     if (expression.kind === "String") {
       const heapAddress = this.addStringToHeap(expression.value ?? "");
+      const stringTemp = this.addTempEntry("string");
 
-      this.emit("A0"); // load Y register with heap pointer
+      this.emit("A9"); // load accumulator with heap pointer
       this.emit(this.toHexByte(String(heapAddress)));
+
+      this.storeAccumulatorInStatic(stringTemp);
+
+      this.emit("AC"); // load Y register from temp pointer
+      this.emit(stringTemp.tempName);
+      this.emit("XX");
 
       this.emit("A2"); // load X register with print mode
       this.emit("02"); // 02 = string print
-      this.emit("FF");
+      this.emit("FF"); // system call
       return;
     }
 
     // print(5), print(true), print(false), print(a + b), print(a == b)
     this.generateExprToAccumulator(expression);
 
-    const printTemp = this.addTempEntry("int");
+    const printTemp = this.addTempEntry(this.getTempTypeForExpr(expression));
     this.storeAccumulatorInStatic(printTemp);
 
     this.emit("AC"); // load Y register from temp
@@ -204,13 +252,64 @@ export class CodeGenerator {
     this.emit("XX");
 
     this.emit("A2"); // load X register with print mode
-    this.emit("01"); // print int/boolean as 1/0
+    this.emit(printTemp.type === "string" ? "02" : "01");
     this.emit("FF");
+  }
+
+  // IfStatement
+  private generateIfStatement(node: ASTNode): void {
+    const condition = this.getConditionNode(node);
+    const block = this.getBlockNode(node);
+
+    if (condition === undefined || block === undefined) {
+      this.fail(
+        "If statement is missing a condition or block.",
+        "Check the AST builder output for if statements."
+      );
+    }
+
+    const falseJumpIndex = this.generateBranchIfConditionFalse(condition);
+
+    this.generateBlock(block);
+
+    this.patchForwardBranch(falseJumpIndex);
+  }
+
+  // WhileStatement
+  private generateWhileStatement(node: ASTNode): void {
+    const condition = this.getConditionNode(node);
+    const block = this.getBlockNode(node);
+
+    if (condition === undefined || block === undefined) {
+      this.fail(
+        "While statement is missing a condition or block.",
+        "Check the AST builder output for while statements."
+      );
+    }
+
+    const loopStartAddress = this.codePointer;
+    const falseJumpIndex = this.generateBranchIfConditionFalse(condition);
+
+    this.generateBlock(block);
+    this.generateAlwaysBranchBack(loopStartAddress);
+
+    this.patchForwardBranch(falseJumpIndex);
   }
 
   // expression code generation
   private generateExprToAccumulator(node: ASTNode): void {
     switch (node.kind) {
+      case "Condition":
+        if (node.children[0] === undefined) {
+          this.fail(
+            "Condition is missing an expression.",
+            "Check the AST builder output for condition nodes."
+          );
+        }
+
+        this.generateExprToAccumulator(node.children[0]);
+        return;
+
       case "Digit":
         this.emit("A9"); // load accumulator with constant
         this.emit(this.toHexByte(node.value ?? "0"));
@@ -233,13 +332,19 @@ export class CodeGenerator {
         const variableName = node.value;
 
         if (variableName === null) {
-          throw new Error("CODE GENERATION: Id expression is missing a variable name.");
+          this.fail(
+            "Id expression is missing a variable name.",
+            "Check the AST builder output for identifier expressions."
+          );
         }
 
         const staticEntry = this.getStaticEntry(variableName);
 
         if (staticEntry === undefined) {
-          throw new Error(`CODE GENERATION: Could not find static entry for '${variableName}'.`);
+          this.fail(
+            `Could not find static entry for '${variableName}'.`,
+            "Check that semantic analysis declared this variable before code generation."
+          );
         }
 
         this.emit("AD"); // load accumulator from memory
@@ -263,7 +368,10 @@ export class CodeGenerator {
       }
 
       default:
-        throw new Error(`CODE GENERATION: Expression '${node.label()}' not added yet.`);
+        this.fail(
+          `Expression '${node.label()}' not added yet.`,
+          "Add code generation support for this AST expression kind."
+        );
     }
   }
 
@@ -273,7 +381,10 @@ export class CodeGenerator {
     const rightExpr = node.children[1];
 
     if (leftExpr === undefined || rightExpr === undefined) {
-      throw new Error("CODE GENERATION: Addition expression is missing a side.");
+      this.fail(
+        "Addition expression is missing a side.",
+        "Check the AST builder output for addition expressions."
+      );
     }
 
     const leftTemp = this.addTempEntry("int");
@@ -297,11 +408,17 @@ export class CodeGenerator {
     const rightExpr = expressionChildren[1];
 
     if (leftExpr === undefined || rightExpr === undefined) {
-      throw new Error("CODE GENERATION: Boolean comparison is missing an expression.");
+      this.fail(
+        "Boolean comparison is missing an expression.",
+        "Check the AST builder output for comparison expressions."
+      );
     }
 
     if (operatorNode?.value !== "==" && operatorNode?.value !== "!=") {
-      throw new Error("CODE GENERATION: Boolean comparison is missing a valid operator.");
+      this.fail(
+        "Boolean comparison is missing a valid operator.",
+        "Expected either == or != in the comparison node."
+      );
     }
 
     if (operatorNode.value === "==") {
@@ -354,8 +471,78 @@ export class CodeGenerator {
     this.storeAccumulatorInStatic(targetEntry);
   }
 
+  // condition branch helper
+  private generateBranchIfConditionFalse(condition: ASTNode): number {
+    const conditionTemp = this.addTempEntry("boolean");
+
+    this.generateExprToAccumulator(condition);
+    this.storeAccumulatorInStatic(conditionTemp);
+
+    this.emit("A2"); // load X register with true
+    this.emit("01");
+
+    this.emit("EC"); // compare condition temp to X
+    this.emit(conditionTemp.tempName);
+    this.emit("XX");
+
+    this.emit("D0"); // if condition is false, branch over block
+    const jumpIndex = this.codePointer;
+    this.emit("J0");
+
+    return jumpIndex;
+  }
+
+  // creates an unconditional backward branch using BNE
+  private generateAlwaysBranchBack(targetAddress: number): void {
+    const alwaysTemp = this.addTempEntry("boolean");
+
+    this.emit("A9"); // store true in memory
+    this.emit("01");
+    this.storeAccumulatorInStatic(alwaysTemp);
+
+    this.emit("A2"); // load X with false
+    this.emit("00");
+
+    this.emit("EC"); // compare true to false, forcing Z = 0
+    this.emit(alwaysTemp.tempName);
+    this.emit("XX");
+
+    this.emit("D0"); // always branch because Z = 0
+
+    const nextAddressAfterBranch = this.codePointer + 1;
+    const offset = (targetAddress - nextAddressAfterBranch + 256) % 256;
+
+    this.emit(this.toHexByte(String(offset)));
+  }
+
+  private patchForwardBranch(jumpIndex: number): void {
+    const nextAddressAfterBranch = jumpIndex + 1;
+    const distance = this.codePointer - nextAddressAfterBranch;
+
+    if (distance < 0 || distance > 255) {
+      this.fail(
+        "Branch distance cannot fit in one byte.",
+        "Reduce the amount of generated code inside this branch or split the program into smaller blocks."
+      );
+    }
+
+    this.code[jumpIndex] = this.toHexByte(String(distance));
+  }
+
   // X register helpers
   private loadXWithExpr(node: ASTNode): void {
+    if (node.kind === "Condition") {
+      if (node.children[0] === undefined) {
+        this.fail(
+          "Condition is missing an expression.",
+          "Check the AST builder output for condition nodes."
+        );
+      }
+
+      this.loadXWithExpr(node.children[0]);
+      return;
+    }
+
     if (node.kind === "Digit") {
       this.emit("A2"); // load X register with constant
       this.emit(this.toHexByte(node.value ?? "0"));
@@ -368,17 +555,31 @@ export class CodeGenerator {
       return;
     }
 
+    if (node.kind === "String") {
+      const heapAddress = this.addStringToHeap(node.value ?? "");
+
+      this.emit("A2");
+      this.emit(this.toHexByte(String(heapAddress)));
+      return;
+    }
+
     if (node.kind === "Id") {
       const variableName = node.value;
 
       if (variableName === null) {
-        throw new Error("CODE GENERATION: Id expression is missing a variable name.");
+        this.fail(
+          "Id expression is missing a variable name.",
+          "Check the AST builder output for identifier expressions."
+        );
       }
 
       const staticEntry = this.getStaticEntry(variableName);
 
       if (staticEntry === undefined) {
-        throw new Error(`CODE GENERATION: Could not find static entry for '${variableName}'.`);
+        this.fail(
+          `Could not find static entry for '${variableName}'.`,
+          "Check that semantic analysis declared this variable before code generation."
+        );
       }
 
       this.emit("AE"); // load X register from memory
@@ -387,22 +588,47 @@ export class CodeGenerator {
       return;
     }
 
-    throw new Error(`CODE GENERATION: Cannot load X with '${node.label()}'.`);
+    const tempEntry = this.addTempEntry(this.getTempTypeForExpr(node));
+
+    this.generateExprToAccumulator(node);
+    this.storeAccumulatorInStatic(tempEntry);
+
+    this.emit("AE"); // load X register from temp
+    this.emit(tempEntry.tempName);
+    this.emit("XX");
   }
 
   // CPX-style compare helper
   private compareXToExpr(node: ASTNode): void {
+    if (node.kind === "Condition") {
+      if (node.children[0] === undefined) {
+        this.fail(
+          "Condition is missing an expression.",
+          "Check the AST builder output for condition nodes."
+        );
+      }
+
+      this.compareXToExpr(node.children[0]);
+      return;
+    }
+
     if (node.kind === "Id") {
       const variableName = node.value;
 
       if (variableName === null) {
-        throw new Error("CODE GENERATION: Id expression is missing a variable name.");
+        this.fail(
+          "Id expression is missing a variable name.",
+          "Check the AST builder output for identifier expressions."
+        );
       }
 
       const staticEntry = this.getStaticEntry(variableName);
 
       if (staticEntry === undefined) {
-        throw new Error(`CODE GENERATION: Could not find static entry for '${variableName}'.`);
+        this.fail(
+          `Could not find static entry for '${variableName}'.`,
+          "Check that semantic analysis declared this variable before code generation."
+        );
       }
 
       this.emit("EC"); // compare memory to X register
@@ -411,23 +637,14 @@ export class CodeGenerator {
       return;
     }
 
-    if (node.kind === "Digit" || node.kind === "BoolVal") {
-      const tempEntry = this.addTempEntry("int");
-      const value = node.kind === "BoolVal"
-        ? node.value === "true" ? "1" : "0"
-        : node.value ?? "0";
+    const tempEntry = this.addTempEntry(this.getTempTypeForExpr(node));
 
-      this.emit("A9"); // load accumulator with constant
-      this.emit(this.toHexByte(value));
-      this.storeAccumulatorInStatic(tempEntry);
+    this.generateExprToAccumulator(node);
+    this.storeAccumulatorInStatic(tempEntry);
 
-      this.emit("EC"); // compare temp memory to X register
-      this.emit(tempEntry.tempName);
-      this.emit("XX");
-      return;
-    }
-
-    throw new Error(`CODE GENERATION: Cannot compare X to '${node.label()}'.`);
+    this.emit("EC"); // compare temp memory to X register
+    this.emit(tempEntry.tempName);
+    this.emit("XX");
   }
 
   // static table handling
@@ -485,13 +702,24 @@ export class CodeGenerator {
       return existingEntry.address;
     }
 
-    this.writeHeapByte("00"); // null terminator
+    const startAddress = this.heapPointer - value.length;
+    const endAddress = this.heapPointer;
 
-    for (let i = value.length - 1; i >= 0; i--) {
-      this.writeHeapByte(this.charToHex(value[i]));
+    if (startAddress <= this.codePointer) {
+      this.fail(
+        "Program is too large for 256 bytes. Generated code, static memory, and heap strings overlap.",
+        "Shorten string literals, reduce the number of statements, or split the source into smaller programs."
+      );
     }
 
-    const startAddress = this.heapPointer + 1;
+    // memory is zero-based, so the array index is the actual address
+    for (let i = 0; i < value.length; i++) {
+      const address = startAddress + i;
+      this.code[address] = this.charToHex(value[i]);
+    }
+
+    this.code[endAddress] = "00"; // null terminator
+    this.heapPointer = startAddress - 1;
 
     this.heapTable.push({
       value,
@@ -503,22 +731,16 @@ export class CodeGenerator {
     return startAddress;
   }
 
-  private writeHeapByte(byte: string): void {
-    if (this.heapPointer < 0) {
-      throw new Error("CODE GENERATION: Heap ran out of memory.");
-    }
-
-    this.code[this.heapPointer] = byte.toUpperCase();
-    this.heapPointer--;
-  }
-
   // replaces T0 XX, T1 XX, etc. with final static addresses
   private backpatchStaticTable(): void {
     for (const entry of this.staticTable) {
       const address = this.codePointer;
 
       if (address > this.heapPointer) {
-        throw new Error("CODE GENERATION: Static memory collided with heap memory.");
+        this.fail(
+          "Program is too large for 256 bytes. Generated code, static memory, and heap strings overlap.",
+          "Reduce the number of variables, temporary values, statements, or string literals."
+        );
       }
 
       entry.address = address;
@@ -537,7 +759,10 @@ export class CodeGenerator {
   // makes sure code/static memory did not run into heap memory
   private checkMemoryCollision(): void {
     if (this.codePointer - 1 >= this.heapPointer + 1) {
-      throw new Error("CODE GENERATION: Code/static memory collided with heap memory.");
+      this.fail(
+        "Program is too large for 256 bytes. Generated code, static memory, and heap strings overlap.",
+        "Reduce the program size or split the source into smaller programs."
+      );
     }
   }
 
@@ -553,7 +778,10 @@ export class CodeGenerator {
   // output helpers
   private emit(byte: string): void {
     if (this.codePointer > this.heapPointer) {
-      throw new Error("CODE GENERATION: Code memory collided with heap memory.");
+      this.fail(
+        "Program is too large for 256 bytes. Generated code, static memory, and heap strings overlap.",
+        "Reduce generated code size before adding more statements or nested blocks."
+      );
     }
 
     this.code[this.codePointer] = byte.toUpperCase();
@@ -564,14 +792,56 @@ export class CodeGenerator {
     }
   }
 
-  // formats output for tsiram like input
-private formatCode(): string[] {
-  const oneLineOutput = this.code
-    .map(byte => `0x${byte}`)
-    .join(", ");
+  // formats output as raw hex bytes
+  private formatCode(): string[] {
+    const oneLineOutput = this.code.join(" ");
 
-  return [oneLineOutput];
-}
+    return [oneLineOutput];
+  }
+
+  // ast helpers
+  private getConditionNode(node: ASTNode): ASTNode | undefined {
+    const conditionNode = node.children.find(child => child.kind === "Condition");
+
+    if (conditionNode !== undefined) {
+      return conditionNode.children[0];
+    }
+
+    return node.children.find(child => child.kind !== "Block");
+  }
+
+  private getBlockNode(node: ASTNode): ASTNode | undefined {
+    return node.children.find(child => child.kind === "Block");
+  }
+
+  private getTempTypeForExpr(node: ASTNode): VariableType {
+    switch (node.kind) {
+      case "Condition":
+        if (node.children[0] === undefined) {
+          return "boolean";
+        }
+
+        return this.getTempTypeForExpr(node.children[0]);
+
+      case "String":
+        return "string";
+
+      case "BoolVal":
+      case "Compare":
+        return "boolean";
+
+      default:
+        return "int";
+    }
+  }
+
+  private fail(message: string, suggestion?: string): never {
+    throw new CodeGenerationError(
+      this.currentProgramLabel,
+      message,
+      suggestion
+    );
+  }
 
   private resetProgramMemory(): void {
     this.code = [];
@@ -591,7 +861,10 @@ private formatCode(): string[] {
     const numberValue = Number(value);
 
     if (Number.isNaN(numberValue) || numberValue < 0 || numberValue > 255) {
-      throw new Error(`CODE GENERATION: '${value}' cannot fit in one byte.`);
+      this.fail(
+        `'${value}' cannot fit in one byte.`,
+        "6502 memory values must fit between 0 and 255."
+      );
     }
 
     return numberValue.toString(16).toUpperCase().padStart(2, "0");
@@ -602,7 +875,10 @@ private formatCode(): string[] {
       return value;
     }
 
-    throw new Error(`CODE GENERATION: Invalid variable type '${value}'.`);
+    this.fail(
+      `Invalid variable type '${value}'.`,
+      "Expected one of: int, string, or boolean."
+    );
   }
 
   private log(message: string): void {

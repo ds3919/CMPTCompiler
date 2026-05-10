@@ -1,91 +1,68 @@
 {
   int a
-  a = 5
-  print(a)
-}$
-
-{
-  int a
   int b
-  a = 7
-  b = a
+  int c
+  boolean d
+  boolean e
+
+  a = 1
+  b = 2
+  c = 1 + b
+
+  print(a)
   print(b)
+  print(c)
+
+  d = (a == b)
+  e = (a != b)
+
+  print(d)
+  print(e)
+
+  if true {
+    print(9)
+  }
+
+  if (a != b) {
+    print(8)
+  }
 }$
 
 {
-  print("hello")
+  int i
+  int l
+  boolean k
+
+  i = 0
+  l = 3
+  k = true
+
+  while (i != l) {
+    print(i)
+    i = 1 + i
+  }
+
+  k = false
+
+  if (k == true) {
+    print(9)
+  }
+
+  print(i)
 }$
 
 {
   string s
+  string t
+  boolean m
+
   s = "hello"
+  t = "bye"
+
   print(s)
-}$
+  print(t)
+  print("done")
 
-{
-  boolean c
-  c = false
-  print(c)
-}$
-
-{
-  boolean c
-  c = true
-  print(c)
-}$
-
-{
-  int a
-  int b
-  boolean c
-  a = 1
-  b = 1
-  c = (a == b)
-  print(c)
-}$
-
-{
-  int a
-  int b
-  boolean c
-  a = 1
-  b = 2
-  c = (a == b)
-  print(c)
-}$
-
-{
-  int a
-  int b
-  boolean c
-  a = 1
-  b = 1
-  c = (a != b)
-  print(c)
-}$
-
-{
-  int a
-  int b
-  boolean c
-  a = 1
-  b = 2
-  c = (a != b)
-  print(c)
-}$
-
-{
-  int a
-  int b
-  a = 3
-  b = 3
-  print((a == b))
-}$
-
-{
-  int a
-  int b
-  a = 1
-  b = 2
-  print(1 + b)
+  m = true
+  print(m)
 }$

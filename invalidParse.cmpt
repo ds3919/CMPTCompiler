@@ -1,0 +1,17 @@
+{
+  int a
+  int b
+
+  a =
+  b = 2
+
+  print()
+  print(a + b)
+
+  a = a!=b)
+}$
+
+{
+  int a =
+  print(a)
+}$

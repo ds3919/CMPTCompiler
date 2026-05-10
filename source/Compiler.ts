@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import { ASTBuilder } from "./ASTBuilder";
-import { CodeGenerator } from "./CodeGenerator";
+import { CodeGenerator, CodeGenerationError } from "./CodeGenerator";
 import { DiagnosticReporter } from "./DiagnosticReporter";
 import { Lexer } from "./Lexer";
 import { Parser } from "./Parser";
@@ -119,14 +119,47 @@ function main(): void {
   console.log("\nCOMPILER: Semantic Analysis passed.");
 
   // code generation phase
-  console.log("COMPILER: Running Code Generation\n");
+    console.log("COMPILER: Running Code Generation");
+  console.log("");
 
-  const codeGenerator = new CodeGenerator(ast, true);
-  const generatedCode = codeGenerator.generate();
+  try {
+    const codeGenerator = new CodeGenerator(ast, true);
+    const generatedCode = codeGenerator.generate();
 
-  console.log("\nCOMPILER: Code Generation finished");
-  console.log("\nGENERATED CODE:");
-  console.log(generatedCode.join("\n"));
+    console.log("");
+    console.log("COMPILER: Code Generation finished");
+    console.log("");
+
+    console.log("GENERATED CODE:");
+    for (const line of generatedCode) {
+      console.log(line);
+    }
+  } catch (error) {
+    console.log("");
+    console.log("COMPILER: Code Generation failed.");
+    console.log("");
+
+    if (error instanceof CodeGenerationError) {
+      console.log(`[ERROR] Code Generation - ${error.programLabel}`);
+      console.log(error.message);
+
+      if (error.suggestion !== undefined) {
+        console.log(`Suggestion: ${error.suggestion}`);
+      }
+
+      return;
+    }
+
+    if (error instanceof Error) {
+      console.log("[ERROR] Code Generation");
+      console.log(error.message);
+      return;
+    }
+
+    console.log("[ERROR] Code Generation");
+    console.log("Unknown code generation failure.");
+    return;
+  }
 }
 
 main();
