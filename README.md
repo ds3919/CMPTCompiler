@@ -2,7 +2,7 @@
 
 6502Compiler is a TypeScript-based compiler project built for the Compilers course at Marist University. It takes source programs written in the course grammar and runs them through the full compilation pipeline: lexical analysis, parsing, concrete syntax tree construction, abstract syntax tree construction, semantic analysis, symbol table generation, and 6502a-style machine code generation.
 
-In addition to the command-line compiler, this project includes a lightweight web interface that allows users to write source programs in the browser, compile them, view formatted terminal output, and copy the generated machine code for each compiled program.
+In addition to the command-line compiler, this project includes a lightweight web interface that allows users to write source programs in the browser, import `.cmpt` files, compile them, view formatted terminal output, and copy the generated machine code for each compiled program.
 
 ## Live Demo
 
@@ -10,7 +10,7 @@ A browser-based version of the compiler is available here:
 
 [Live Web Compiler](https://ds3919.github.io/6502Compiler/)
 
-The web interface allows users to type source code, run the compiler, view terminal-style output, toggle detailed compiler output, and copy the generated hex code for each compiled program.
+The web interface allows users to type source code, import `.cmpt` files, run the compiler, view terminal-style output, toggle detailed compiler output, and copy the generated hex code for each compiled program.
 
 ## Running Locally
 
@@ -57,11 +57,9 @@ The compiler stops after a failed phase. A lexer error prevents parsing, a parse
 
 ## Web Interface
 
-The project also includes a browser-based compiler interface built with Vite and React. The site provides a source-code editor, a terminal-style output panel, a detailed output toggle, and a dropdown for copying the generated hex code for each compiled program.
+The project also includes a browser-based compiler interface built with Vite and React. The site provides a source-code editor, `.cmpt` file import support, a terminal-style output panel, a detailed output toggle, and a dropdown for copying the generated hex code for each compiled program.
 
-The live version is available at:
-
-[https://ds3919.github.io/6502Compiler/](https://ds3919.github.io/6502Compiler/)
+The import feature loads a selected `.cmpt` file directly into the browser editor. After importing, the user can review or edit the source before pressing Compile.
 
 To run the site locally, move into the `web/` directory and start the Vite development server:
 
@@ -219,7 +217,7 @@ This compiler intentionally follows the constraints of the course grammar and ta
 
 When code generation succeeds, the compiler prints the generated 6502a-style machine code for each program in the input file. Each program is emitted separately, which makes it easier to copy, test, and inspect generated output.
 
-The web interface includes a program selector next to the compile controls. After compilation, users can select `Program 1`, `Program 2`, etc., and copy only that program’s generated hex code.
+The web interface includes file import support and a program selector next to the compile controls. After compilation, users can select `Program 1`, `Program 2`, etc., and copy only that program’s generated hex code.
 
 The generated memory layout uses a standard split-memory strategy. Executable code and static variable storage grow upward from the beginning of memory, while string data is stored on the heap growing downward from the end of memory. This structure makes memory collision detection straightforward: if the code/static pointer and heap pointer meet or cross, the compiler knows the generated program no longer fits inside the 256-byte memory model.
 
@@ -237,4 +235,4 @@ During development, AI was used as a planning and review tool to help organize e
 
 AI assistance was also used for the website design, terminal-style interface, color formatting, and overall presentation of compiler output.
 
-This compiler implementation was developed specifically for this project, with AI used as a support tool for explanation, organization, boilerplate, debugging, and interface design.
+The compiler implementation was developed specifically for this project, with AI used as a support tool for explanation, organization, boilerplate, debugging, and interface design.
