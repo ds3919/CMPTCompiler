@@ -3,6 +3,11 @@ import Convert from "ansi-to-html";
 import { compileSource } from "./compilerRunner";
 import "./App.css";
 
+type CompiledProgram = {
+  label: string;
+  code: string;
+};
+
 const starterCode = `{
   int a
   a = 5
@@ -13,6 +18,9 @@ function App() {
   const [source, setSource] = useState(starterCode);
   const [terminalOutput, setTerminalOutput] = useState("Compiler output will appear here.");
   const [showDetails, setShowDetails] = useState(false);
+  const [compiledPrograms, setCompiledPrograms] = useState<CompiledProgram[]>([]);
+  const [selectedProgramIndex, setSelectedProgramIndex] = useState("0");
+  const [copyStatus, setCopyStatus] = useState("");
 
   const converter = useMemo(() => {
     return new Convert({
@@ -26,11 +34,34 @@ function App() {
   function compileCode(): void {
     const rawOutput = compileSource(source, showDetails);
     const htmlOutput = converter.toHtml(rawOutput);
+    const programs = extractCompiledPrograms(rawOutput);
+
     setTerminalOutput(htmlOutput);
+    setCompiledPrograms(programs);
+    setSelectedProgramIndex("0");
+    setCopyStatus("");
   }
 
   function clearTerminal(): void {
     setTerminalOutput("Compiler output will appear here.");
+    setCompiledPrograms([]);
+    setSelectedProgramIndex("0");
+    setCopyStatus("");
+  }
+
+  async function copySelectedProgram(): Promise<void> {
+    const selectedProgram = compiledPrograms[Number(selectedProgramIndex)];
+
+    if (selectedProgram === undefined) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(selectedProgram.code);
+      setCopyStatus(`Copied ${selectedProgram.label}`);
+    } catch {
+      setCopyStatus("Copy failed");
+    }
   }
 
   return (
@@ -50,6 +81,34 @@ function App() {
             />
             Detailed output
           </label>
+
+          <select
+            className="programSelect"
+            value={selectedProgramIndex}
+            onChange={event => {
+              setSelectedProgramIndex(event.target.value);
+              setCopyStatus("");
+            }}
+            disabled={compiledPrograms.length === 0}
+          >
+            {compiledPrograms.length === 0 ? (
+              <option>No compiled programs</option>
+            ) : (
+              compiledPrograms.map((program, index) => (
+                <option key={program.label} value={String(index)}>
+                  {program.label}
+                </option>
+              ))
+            )}
+          </select>
+
+          <button
+            className="copyButton"
+            onClick={copySelectedProgram}
+            disabled={compiledPrograms.length === 0}
+          >
+            Copy Hex
+          </button>
 
           <button className="secondaryButton" onClick={clearTerminal}>
             Clear
@@ -73,6 +132,11 @@ function App() {
 
         <div className="panel">
           <div className="panelHeader">Terminal</div>
+
+          {copyStatus.length > 0 && (
+            <div className="copyStatus">{copyStatus}</div>
+          )}
+
           <pre
             className="terminal"
             dangerouslySetInnerHTML={{ __html: terminalOutput }}
@@ -81,6 +145,42 @@ function App() {
       </section>
     </main>
   );
+}
+
+function extractCompiledPrograms(rawOutput: string): CompiledProgram[] {
+  const cleanOutput = stripAnsi(rawOutput);
+  const generatedCodeIndex = cleanOutput.indexOf("GENERATED CODE:");
+
+  if (generatedCodeIndex === -1) {
+    return [];
+  }
+
+  const generatedCodeSection = cleanOutput.slice(generatedCodeIndex);
+  const programRegex = /(Program \d+):\s*\n([0-9A-Fa-f\s]+?)(?=\nProgram \d+:|\s*$)/g;
+
+  const programs: CompiledProgram[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = programRegex.exec(generatedCodeSection)) !== null) {
+    const label = match[1];
+    const code = match[2]
+      .trim()
+      .replace(/\s+/g, " ")
+      .toUpperCase();
+
+    if (code.length > 0) {
+      programs.push({
+        label,
+        code
+      });
+    }
+  }
+
+  return programs;
+}
+
+function stripAnsi(value: string): string {
+  return value.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, "");
 }
 
 export default App;

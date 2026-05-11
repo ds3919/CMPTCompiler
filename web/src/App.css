@@ -35,7 +35,9 @@ p {
 .actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .toggle {
@@ -50,11 +52,20 @@ p {
 button {
   border: 1px solid #7dd3fc;
   border-radius: 12px;
-  padding: 12px 18px;
+  padding: 10px 16px;
   background: #38bdf8;
   color: #020617;
   font-weight: 700;
   cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .secondaryButton {
@@ -63,8 +74,35 @@ button {
   color: #f8fafc;
 }
 
-button:hover {
-  filter: brightness(1.08);
+.programSelect {
+  border: 1px solid #64748b;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: #3b4553;
+  color: #f8fafc;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  max-width: 180px;
+}
+
+.programSelect:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.copyButton {
+  border-color: #64748b;
+  background: #4b5563;
+  color: #f8fafc;
+}
+
+.copyStatus {
+  padding: 8px 14px;
+  border-bottom: 1px solid #4b5563;
+  background: #313844;
+  color: #bfdbfe;
+  font-size: 13px;
 }
 
 .workspace {
@@ -128,7 +166,7 @@ textarea {
   }
 
   .actions {
-    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .workspace {
