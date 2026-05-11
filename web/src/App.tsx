@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Convert from "ansi-to-html";
 import { compileSource } from "./compilerRunner";
 import "./App.css";
@@ -21,6 +21,7 @@ function App() {
   const [compiledPrograms, setCompiledPrograms] = useState<CompiledProgram[]>([]);
   const [selectedProgramIndex, setSelectedProgramIndex] = useState("0");
   const [copyStatus, setCopyStatus] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const converter = useMemo(() => {
     return new Convert({
@@ -47,6 +48,39 @@ function App() {
     setCompiledPrograms([]);
     setSelectedProgramIndex("0");
     setCopyStatus("");
+  }
+
+  function openFilePicker(): void {
+    fileInputRef.current?.click();
+  }
+
+  async function importSourceFile(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.target.files?.[0];
+
+    if (file === undefined) {
+      return;
+    }
+
+    if (!file.name.endsWith(".cmpt")) {
+      setTerminalOutput(
+        converter.toHtml(
+          "\x1b[38;2;239;130;130mImport failed: expected a .cmpt source file.\x1b[0m"
+        )
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    const fileText = await file.text();
+
+    setSource(fileText);
+    setTerminalOutput(`Imported ${file.name}. Press Compile to compile it.`);
+    setCompiledPrograms([]);
+    setSelectedProgramIndex("0");
+    setCopyStatus("");
+
+    event.target.value = "";
   }
 
   async function copySelectedProgram(): Promise<void> {
@@ -81,6 +115,18 @@ function App() {
             />
             Detailed output
           </label>
+
+          <button className="secondaryButton" onClick={openFilePicker}>
+            Import File
+          </button>
+
+          <input
+            ref={fileInputRef}
+            className="hiddenFileInput"
+            type="file"
+            accept=".cmpt,text/plain"
+            onChange={importSourceFile}
+          />
 
           <select
             className="programSelect"

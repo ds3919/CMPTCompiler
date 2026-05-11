@@ -159,6 +159,10 @@ textarea {
   font-weight: 500;
 }
 
+.hiddenFileInput {
+  display: none;
+}
+
 @media (max-width: 950px) {
   .header {
     align-items: flex-start;
